@@ -230,7 +230,42 @@ async fn shell_pre_tool_use_payload_uses_joined_command() {
             payload,
         }),
         Some(crate::tools::registry::PreToolUsePayload {
-            command: "bash -lc 'printf hi'".to_string(),
+            tool_name: "Bash".to_string(),
+            tool_input: json!({"command": "bash -lc 'printf hi'"}),
+        })
+    );
+}
+
+#[tokio::test]
+async fn shell_pre_tool_use_payload_normalizes_apply_patch_signal() {
+    let patch = "*** Begin Patch\n*** Add File: signal.txt\n+hi\n*** End Patch";
+    let payload = ToolPayload::LocalShell {
+        params: codex_protocol::models::ShellToolCallParams {
+            command: vec!["apply_patch".to_string(), patch.to_string()],
+            workdir: None,
+            timeout_ms: None,
+            sandbox_permissions: None,
+            prefix_rule: None,
+            additional_permissions: None,
+            justification: None,
+        },
+    };
+    let (session, turn) = make_session_and_context().await;
+    let handler = ShellHandler;
+
+    assert_eq!(
+        handler.pre_tool_use_payload(&ToolInvocation {
+            session: session.into(),
+            turn: turn.into(),
+            tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+            call_id: "call-41a".to_string(),
+            tool_name: "shell".to_string(),
+            tool_namespace: None,
+            payload,
+        }),
+        Some(crate::tools::registry::PreToolUsePayload {
+            tool_name: "apply_patch".to_string(),
+            tool_input: json!({"files": ["signal.txt"]}),
         })
     );
 }
@@ -256,16 +291,47 @@ async fn shell_command_pre_tool_use_payload_uses_raw_command() {
             payload,
         }),
         Some(crate::tools::registry::PreToolUsePayload {
-            command: "printf shell command".to_string(),
+            tool_name: "Bash".to_string(),
+            tool_input: json!({"command": "printf shell command"}),
         })
     );
 }
 
-#[test]
-fn build_post_tool_use_payload_uses_tool_output_wire_value() {
+#[tokio::test]
+async fn shell_command_pre_tool_use_payload_normalizes_apply_patch_signal() {
+    let patch = "*** Begin Patch\n*** Add File: signal.txt\n+hi\n*** End Patch";
+    let command = format!("apply_patch <<'EOF'\n{patch}\nEOF\n");
+    let payload = ToolPayload::Function {
+        arguments: json!({ "command": command }).to_string(),
+    };
+    let (session, turn) = make_session_and_context().await;
+    let handler = ShellCommandHandler {
+        backend: super::ShellCommandBackend::Classic,
+    };
+
+    assert_eq!(
+        handler.pre_tool_use_payload(&ToolInvocation {
+            session: session.into(),
+            turn: turn.into(),
+            tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+            call_id: "call-42a".to_string(),
+            tool_name: "shell_command".to_string(),
+            tool_namespace: None,
+            payload,
+        }),
+        Some(crate::tools::registry::PreToolUsePayload {
+            tool_name: "apply_patch".to_string(),
+            tool_input: json!({"files": ["signal.txt"]}),
+        })
+    );
+}
+
+#[tokio::test]
+async fn build_post_tool_use_payload_uses_tool_output_wire_value() {
     let payload = ToolPayload::Function {
         arguments: json!({ "command": "printf shell command" }).to_string(),
     };
+    let (session, turn) = make_session_and_context().await;
     let output = FunctionToolOutput {
         body: vec![],
         success: Some(true),
@@ -276,10 +342,62 @@ fn build_post_tool_use_payload_uses_tool_output_wire_value() {
     };
 
     assert_eq!(
-        handler.post_tool_use_payload("call-42", &payload, &output),
+        handler.post_tool_use_payload(
+            &ToolInvocation {
+                session: session.into(),
+                turn: turn.into(),
+                tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+                call_id: "call-42".to_string(),
+                tool_name: "shell_command".to_string(),
+                tool_namespace: None,
+                payload: payload.clone(),
+            },
+            "call-42",
+            &output,
+        ),
         Some(crate::tools::registry::PostToolUsePayload {
-            command: "printf shell command".to_string(),
+            tool_name: "Bash".to_string(),
+            tool_input: json!({"command": "printf shell command"}),
             tool_response: json!("shell output"),
+        })
+    );
+}
+
+#[tokio::test]
+async fn build_post_tool_use_payload_normalizes_apply_patch_signal() {
+    let patch = "*** Begin Patch\n*** Add File: signal.txt\n+hi\n*** End Patch";
+    let command = format!("apply_patch <<'EOF'\n{patch}\nEOF\n");
+    let payload = ToolPayload::Function {
+        arguments: json!({ "command": command }).to_string(),
+    };
+    let (session, turn) = make_session_and_context().await;
+    let output = FunctionToolOutput {
+        body: vec![],
+        success: Some(true),
+        post_tool_use_response: Some(json!("Done!")),
+    };
+    let handler = ShellCommandHandler {
+        backend: super::ShellCommandBackend::Classic,
+    };
+
+    assert_eq!(
+        handler.post_tool_use_payload(
+            &ToolInvocation {
+                session: session.into(),
+                turn: turn.into(),
+                tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+                call_id: "call-42b".to_string(),
+                tool_name: "shell_command".to_string(),
+                tool_namespace: None,
+                payload,
+            },
+            "call-42b",
+            &output,
+        ),
+        Some(crate::tools::registry::PostToolUsePayload {
+            tool_name: "apply_patch".to_string(),
+            tool_input: json!({"files": ["signal.txt"]}),
+            tool_response: json!("Done!"),
         })
     );
 }

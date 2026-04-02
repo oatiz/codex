@@ -8,7 +8,11 @@ use crate::tools::context::ToolInvocation;
 use crate::tools::context::ToolOutput;
 use crate::tools::context::ToolPayload;
 use crate::tools::handlers::apply_granted_turn_permissions;
+use crate::tools::handlers::apply_patch::APPLY_PATCH_HOOK_TOOL_NAME;
+use crate::tools::handlers::apply_patch::apply_patch_tool_input;
+use crate::tools::handlers::apply_patch::extract_files_from_patch;
 use crate::tools::handlers::apply_patch::intercept_apply_patch;
+use crate::tools::handlers::apply_patch::is_apply_patch_command;
 use crate::tools::handlers::implicit_granted_permissions;
 use crate::tools::handlers::normalize_and_validate_additional_permissions;
 use crate::tools::handlers::parse_arguments;
@@ -86,6 +90,44 @@ fn default_tty() -> bool {
     false
 }
 
+fn unified_exec_hook_payload(invocation: &ToolInvocation) -> Option<PreToolUsePayload> {
+    if invocation.tool_name != "exec_command" {
+        return None;
+    }
+
+    let ToolPayload::Function { arguments } = &invocation.payload else {
+        return None;
+    };
+
+    let base_path = resolve_workdir_base_path(arguments, invocation.turn.cwd.as_path()).ok()?;
+    let args: ExecCommandArgs =
+        parse_arguments_with_base_path(arguments, base_path.as_path()).ok()?;
+    let cwd = invocation.turn.resolve_path(args.workdir.clone());
+    let command = get_command(
+        &args,
+        invocation.session.user_shell(),
+        &invocation.turn.tools_config.unified_exec_shell_mode,
+        invocation.turn.tools_config.allow_login_shell,
+    )
+    .ok()?;
+
+    if is_apply_patch_command(&command, &cwd) {
+        let files = command
+            .get(1)
+            .map(|patch_text| extract_files_from_patch(patch_text))
+            .unwrap_or_default();
+        Some(PreToolUsePayload {
+            tool_name: APPLY_PATCH_HOOK_TOOL_NAME.to_string(),
+            tool_input: apply_patch_tool_input(files),
+        })
+    } else {
+        Some(PreToolUsePayload {
+            tool_name: "Bash".to_string(),
+            tool_input: serde_json::json!({ "command": args.cmd }),
+        })
+    }
+}
+
 #[async_trait]
 impl ToolHandler for UnifiedExecHandler {
     type Output = ExecCommandToolOutput;
@@ -123,26 +165,16 @@ impl ToolHandler for UnifiedExecHandler {
     }
 
     fn pre_tool_use_payload(&self, invocation: &ToolInvocation) -> Option<PreToolUsePayload> {
-        if invocation.tool_name != "exec_command" {
-            return None;
-        }
-
-        let ToolPayload::Function { arguments } = &invocation.payload else {
-            return None;
-        };
-
-        parse_arguments::<ExecCommandArgs>(arguments)
-            .ok()
-            .map(|args| PreToolUsePayload { command: args.cmd })
+        unified_exec_hook_payload(invocation)
     }
 
     fn post_tool_use_payload(
         &self,
+        invocation: &ToolInvocation,
         call_id: &str,
-        payload: &ToolPayload,
         result: &dyn ToolOutput,
     ) -> Option<PostToolUsePayload> {
-        let ToolPayload::Function { arguments } = payload else {
+        let ToolPayload::Function { arguments } = &invocation.payload else {
             return None;
         };
 
@@ -151,9 +183,11 @@ impl ToolHandler for UnifiedExecHandler {
             return None;
         }
 
-        let tool_response = result.post_tool_use_response(call_id, payload)?;
+        let tool_response = result.post_tool_use_response(call_id, &invocation.payload)?;
+        let hook_payload = unified_exec_hook_payload(invocation)?;
         Some(PostToolUsePayload {
-            command: args.cmd,
+            tool_name: hook_payload.tool_name,
+            tool_input: hook_payload.tool_input,
             tool_response,
         })
     }

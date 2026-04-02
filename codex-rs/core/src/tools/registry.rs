@@ -64,8 +64,8 @@ pub trait ToolHandler: Send + Sync {
 
     fn post_tool_use_payload(
         &self,
+        _invocation: &ToolInvocation,
         _call_id: &str,
-        _payload: &ToolPayload,
         _result: &dyn ToolOutput,
     ) -> Option<PostToolUsePayload> {
         None
@@ -101,14 +101,16 @@ impl AnyToolResult {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PreToolUsePayload {
-    pub(crate) command: String,
+    pub(crate) tool_name: String,
+    pub(crate) tool_input: Value,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct PostToolUsePayload {
-    pub(crate) command: String,
+    pub(crate) tool_name: String,
+    pub(crate) tool_input: Value,
     pub(crate) tool_response: Value,
 }
 
@@ -122,8 +124,8 @@ trait AnyToolHandler: Send + Sync {
 
     fn post_tool_use_payload(
         &self,
+        invocation: &ToolInvocation,
         call_id: &str,
-        payload: &ToolPayload,
         result: &dyn ToolOutput,
     ) -> Option<PostToolUsePayload>;
 
@@ -152,11 +154,11 @@ where
 
     fn post_tool_use_payload(
         &self,
+        invocation: &ToolInvocation,
         call_id: &str,
-        payload: &ToolPayload,
         result: &dyn ToolOutput,
     ) -> Option<PostToolUsePayload> {
-        ToolHandler::post_tool_use_payload(self, call_id, payload, result)
+        ToolHandler::post_tool_use_payload(self, invocation, call_id, result)
     }
 
     async fn handle_any(
@@ -301,14 +303,27 @@ impl ToolRegistry {
                 &invocation.session,
                 &invocation.turn,
                 invocation.call_id.clone(),
-                pre_tool_use_payload.command.clone(),
+                pre_tool_use_payload.tool_name.clone(),
+                pre_tool_use_payload.tool_input.clone(),
             )
             .await
         {
-            return Err(FunctionCallError::RespondToModel(format!(
-                "Command blocked by PreToolUse hook: {reason}. Command: {}",
-                pre_tool_use_payload.command
-            )));
+            let message = if pre_tool_use_payload.tool_name == "Bash" {
+                format!(
+                    "Command blocked by PreToolUse hook: {reason}. Command: {}",
+                    pre_tool_use_payload
+                        .tool_input
+                        .get("command")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("<unknown>")
+                )
+            } else {
+                format!(
+                    "Tool blocked by PreToolUse hook: {reason}. Tool: {}",
+                    pre_tool_use_payload.tool_name
+                )
+            };
+            return Err(FunctionCallError::RespondToModel(message));
         }
 
         let is_mutating = handler.is_mutating(&invocation).await;
@@ -356,11 +371,7 @@ impl ToolRegistry {
         let post_tool_use_payload = if success {
             let guard = response_cell.lock().await;
             guard.as_ref().and_then(|result| {
-                handler.post_tool_use_payload(
-                    &result.call_id,
-                    &result.payload,
-                    result.result.as_ref(),
-                )
+                handler.post_tool_use_payload(&invocation, &result.call_id, result.result.as_ref())
             })
         } else {
             None
@@ -371,7 +382,8 @@ impl ToolRegistry {
                     &invocation.session,
                     &invocation.turn,
                     invocation.call_id.clone(),
-                    post_tool_use_payload.command,
+                    post_tool_use_payload.tool_name,
+                    post_tool_use_payload.tool_input,
                     post_tool_use_payload.tool_response,
                 )
                 .await,

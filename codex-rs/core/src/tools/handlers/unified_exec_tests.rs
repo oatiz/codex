@@ -216,7 +216,35 @@ async fn exec_command_pre_tool_use_payload_uses_raw_command() {
             payload,
         }),
         Some(crate::tools::registry::PreToolUsePayload {
-            command: "printf exec command".to_string(),
+            tool_name: "Bash".to_string(),
+            tool_input: serde_json::json!({"command": "printf exec command"}),
+        })
+    );
+}
+
+#[tokio::test]
+async fn exec_command_pre_tool_use_payload_normalizes_apply_patch_signal() {
+    let patch = "*** Begin Patch\n*** Add File: signal.txt\n+hi\n*** End Patch";
+    let command = format!("apply_patch <<'EOF'\n{patch}\nEOF\n");
+    let payload = ToolPayload::Function {
+        arguments: serde_json::json!({ "cmd": command }).to_string(),
+    };
+    let (session, turn) = make_session_and_context().await;
+    let handler = UnifiedExecHandler;
+
+    assert_eq!(
+        handler.pre_tool_use_payload(&ToolInvocation {
+            session: session.into(),
+            turn: turn.into(),
+            tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+            call_id: "call-43a".to_string(),
+            tool_name: "exec_command".to_string(),
+            tool_namespace: None,
+            payload,
+        }),
+        Some(crate::tools::registry::PreToolUsePayload {
+            tool_name: "apply_patch".to_string(),
+            tool_input: serde_json::json!({"files": ["signal.txt"]}),
         })
     );
 }
@@ -243,11 +271,12 @@ async fn exec_command_pre_tool_use_payload_skips_write_stdin() {
     );
 }
 
-#[test]
-fn exec_command_post_tool_use_payload_uses_output_for_noninteractive_one_shot_commands() {
+#[tokio::test]
+async fn exec_command_post_tool_use_payload_uses_output_for_noninteractive_one_shot_commands() {
     let payload = ToolPayload::Function {
         arguments: serde_json::json!({ "cmd": "echo three", "tty": false }).to_string(),
     };
+    let (session, turn) = make_session_and_context().await;
     let output = ExecCommandToolOutput {
         event_call_id: "event-43".to_string(),
         chunk_id: "chunk-1".to_string(),
@@ -265,19 +294,75 @@ fn exec_command_post_tool_use_payload_uses_output_for_noninteractive_one_shot_co
     };
 
     assert_eq!(
-        UnifiedExecHandler.post_tool_use_payload("call-43", &payload, &output),
+        UnifiedExecHandler.post_tool_use_payload(
+            &ToolInvocation {
+                session: session.into(),
+                turn: turn.into(),
+                tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+                call_id: "call-43".to_string(),
+                tool_name: "exec_command".to_string(),
+                tool_namespace: None,
+                payload: payload.clone(),
+            },
+            "call-43",
+            &output,
+        ),
         Some(crate::tools::registry::PostToolUsePayload {
-            command: "echo three".to_string(),
+            tool_name: "Bash".to_string(),
+            tool_input: serde_json::json!({"command": "echo three"}),
             tool_response: serde_json::json!("three"),
         })
     );
 }
 
-#[test]
-fn exec_command_post_tool_use_payload_skips_interactive_exec() {
+#[tokio::test]
+async fn exec_command_post_tool_use_payload_normalizes_apply_patch_signal() {
+    let patch = "*** Begin Patch\n*** Add File: signal.txt\n+hi\n*** End Patch";
+    let command = format!("apply_patch <<'EOF'\n{patch}\nEOF\n");
+    let payload = ToolPayload::Function {
+        arguments: serde_json::json!({ "cmd": command.clone(), "tty": false }).to_string(),
+    };
+    let (session, turn) = make_session_and_context().await;
+    let output = ExecCommandToolOutput {
+        event_call_id: "event-43a".to_string(),
+        chunk_id: "chunk-1".to_string(),
+        wall_time: std::time::Duration::from_millis(498),
+        raw_output: b"Done!".to_vec(),
+        max_output_tokens: None,
+        process_id: None,
+        exit_code: Some(0),
+        original_token_count: None,
+        session_command: Some(vec!["/bin/zsh".to_string(), "-lc".to_string(), command]),
+    };
+
+    assert_eq!(
+        UnifiedExecHandler.post_tool_use_payload(
+            &ToolInvocation {
+                session: session.into(),
+                turn: turn.into(),
+                tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+                call_id: "call-43a".to_string(),
+                tool_name: "exec_command".to_string(),
+                tool_namespace: None,
+                payload,
+            },
+            "call-43a",
+            &output,
+        ),
+        Some(crate::tools::registry::PostToolUsePayload {
+            tool_name: "apply_patch".to_string(),
+            tool_input: serde_json::json!({"files": ["signal.txt"]}),
+            tool_response: serde_json::json!("Done!"),
+        })
+    );
+}
+
+#[tokio::test]
+async fn exec_command_post_tool_use_payload_skips_interactive_exec() {
     let payload = ToolPayload::Function {
         arguments: serde_json::json!({ "cmd": "echo three", "tty": true }).to_string(),
     };
+    let (session, turn) = make_session_and_context().await;
     let output = ExecCommandToolOutput {
         event_call_id: "event-44".to_string(),
         chunk_id: "chunk-1".to_string(),
@@ -295,16 +380,29 @@ fn exec_command_post_tool_use_payload_skips_interactive_exec() {
     };
 
     assert_eq!(
-        UnifiedExecHandler.post_tool_use_payload("call-44", &payload, &output),
+        UnifiedExecHandler.post_tool_use_payload(
+            &ToolInvocation {
+                session: session.into(),
+                turn: turn.into(),
+                tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+                call_id: "call-44".to_string(),
+                tool_name: "exec_command".to_string(),
+                tool_namespace: None,
+                payload,
+            },
+            "call-44",
+            &output,
+        ),
         None
     );
 }
 
-#[test]
-fn exec_command_post_tool_use_payload_skips_running_sessions() {
+#[tokio::test]
+async fn exec_command_post_tool_use_payload_skips_running_sessions() {
     let payload = ToolPayload::Function {
         arguments: serde_json::json!({ "cmd": "echo three", "tty": false }).to_string(),
     };
+    let (session, turn) = make_session_and_context().await;
     let output = ExecCommandToolOutput {
         event_call_id: "event-45".to_string(),
         chunk_id: "chunk-1".to_string(),
@@ -322,7 +420,19 @@ fn exec_command_post_tool_use_payload_skips_running_sessions() {
     };
 
     assert_eq!(
-        UnifiedExecHandler.post_tool_use_payload("call-45", &payload, &output),
+        UnifiedExecHandler.post_tool_use_payload(
+            &ToolInvocation {
+                session: session.into(),
+                turn: turn.into(),
+                tracker: Arc::new(Mutex::new(TurnDiffTracker::new())),
+                call_id: "call-45".to_string(),
+                tool_name: "exec_command".to_string(),
+                tool_namespace: None,
+                payload,
+            },
+            "call-45",
+            &output,
+        ),
         None
     );
 }

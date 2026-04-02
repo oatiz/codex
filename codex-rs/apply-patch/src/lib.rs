@@ -1,5 +1,5 @@
 mod invocation;
-mod parser;
+pub mod parser;
 mod seek_sequence;
 mod standalone_executable;
 
