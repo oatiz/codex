@@ -1,0 +1,50 @@
+codex-rs/hooks/schema/generated/pre-tool-use.command.input.schema.json
+  ec85b0890f9ab45a 52-55
+codex-rs/core/src/tools/handlers/shell.rs
+  ec85b0890f9ab45a 23,25,57-74,76-99,104-109,114-127,261,266,270-271,273-274,370-375,380,384-390,392-393
+codex-rs/hooks/schema/generated/post-tool-use.command.input.schema.json
+  ec85b0890f9ab45a 52-55
+codex-rs/hooks/src/events/pre_tool_use.rs
+  ec85b0890f9ab45a 85
+codex-rs/core/src/tools/handlers/apply_patch.rs
+  ec85b0890f9ab45a 19-20,40-49,156-174,317-319,369-371
+codex-rs/core/src/tools/context.rs
+  ec85b0890f9ab45a 243-246
+codex-rs/core/src/tools/handlers/unified_exec_tests.rs
+  ec85b0890f9ab45a 219,226-251,274-275,279,297-309,311,318-355,360-361,365,383-395,400-401,405,423-435
+codex-rs/core/src/hook_runtime.rs
+  ec85b0890f9ab45a 122,132,153,164
+codex-rs/core/src/tools/handlers/shell_tests.rs
+  ec85b0890f9ab45a 233,240-272,294,300-324,329-330,334,345-357,359,365-400
+codex-rs/core/src/tools/handlers/unified_exec.rs
+  ec85b0890f9ab45a 11,13,91-124,162,167,171,180-181,183-184
+codex-rs/core/src/tools/registry.rs
+  ec85b0890f9ab45a 67,106,112,127,157,161,306,311-322,370,381
+codex-rs/core/tests/suite/hooks.rs
+  ec85b0890f9ab45a 15,1291-1374,1830-1906
+codex-rs/hooks/src/events/post_tool_use.rs
+  ec85b0890f9ab45a 94
+codex-rs/hooks/src/schema.rs
+  ec85b0890f9ab45a 457,465
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6",
+  "base_commit_sha": "ae732a0762e7dfa3b5c2858686d474bd4b36f9fb",
+  "prompts": {
+    "ec85b0890f9ab45a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4d45-e5c4-7d32-8d78-9406ca366567",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "oatiz",
+      "messages": [],
+      "total_additions": 617,
+      "total_deletions": 71,
+      "accepted_lines": 617,
+      "overriden_lines": 0,
+      "messages_url": "https://codeaiapi.xinfei-inc.cn/cas/94b5dcf2df7e3201a9d0b8273864fc92496ce6d3b56109fafb997bfe5beee648"
+    }
+  }
+}
