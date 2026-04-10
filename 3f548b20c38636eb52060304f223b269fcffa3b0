@@ -1,0 +1,78 @@
+codex-rs/hooks/src/events/post_tool_use.rs
+  a24a1ac593e28bfb 30,94
+  ec85b0890f9ab45a 93
+codex-rs/hooks/schema/generated/post-tool-use.command.input.schema.json
+  ec85b0890f9ab45a 40-43
+  a24a1ac593e28bfb 37
+codex-rs/core/src/tools/handlers/shell.rs
+  a24a1ac593e28bfb 24-25,59-63,66,73,89,99,130,280,399
+  ec85b0890f9ab45a 23,27,64-65,67-72,74-80,82-88,90-98,100-105,110-115,120-129,131-133,267,272,276-277,279,376-381,386,390-396,398
+codex-rs/core/src/tools/registry.rs
+  a24a1ac593e28bfb 107,113,307,314-318,386
+  ec85b0890f9ab45a 67,106,112,127,157,161,306,311-313,319-326,374,385
+codex-rs/hooks/src/schema.rs
+  a24a1ac593e28bfb 173-176,196-199
+  ec85b0890f9ab45a 449,457
+codex-rs/core/src/tools/context.rs
+  ec85b0890f9ab45a 243-246
+codex-rs/core/src/tools/handlers/unified_exec_tests.rs
+  ec85b0890f9ab45a 219,226-246,274-275,279,297-309,311,318-353,355,360-361,365,383-395,400-401,405,423-435
+  a24a1ac593e28bfb 220,247,312,354
+codex-rs/core/src/tools/handlers/apply_patch.rs
+  ec85b0890f9ab45a 19-20,40-41,85-91,200-201,203-212,214-215,217-218,361-363,413-415
+  a24a1ac593e28bfb 42-84,198-199,202,213,216
+codex-rs/core/tests/suite/hooks.rs
+  ec85b0890f9ab45a 15,1291-1369,1374-1377,1833-1903,1908-1912
+  a24a1ac593e28bfb 1370-1373,1904-1907
+codex-rs/hooks/src/events/pre_tool_use.rs
+  a24a1ac593e28bfb 10,30,87
+  ec85b0890f9ab45a 86
+codex-rs/core/src/hook_runtime.rs
+  ec85b0890f9ab45a 122,132,153,164
+  a24a1ac593e28bfb 123,134,154,166
+codex-rs/hooks/schema/generated/pre-tool-use.command.input.schema.json
+  ec85b0890f9ab45a 40-43
+  a24a1ac593e28bfb 37
+codex-rs/apply-patch/src/lib.rs
+  a24a1ac593e28bfb 2
+codex-rs/core/src/tools/handlers/shell_tests.rs
+  a24a1ac593e28bfb 234,268,295,324,360,399
+  ec85b0890f9ab45a 233,240-267,294,300-323,329-330,334,345-357,359,365-398,400
+codex-rs/core/src/tools/handlers/unified_exec.rs
+  ec85b0890f9ab45a 11,15,93-114,119-120,122-125,127-130,168,173,177,186-187,189
+  a24a1ac593e28bfb 12-13,115-118,121,126,190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6-codex",
+  "base_commit_sha": "3f548b20c38636eb52060304f223b269fcffa3b0",
+  "prompts": {
+    "a24a1ac593e28bfb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f0e837d3-8170-4446-b79d-e0afec029aa1",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 440,
+      "total_deletions": 150,
+      "accepted_lines": 378,
+      "overriden_lines": 0
+    },
+    "ec85b0890f9ab45a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4d45-e5c4-7d32-8d78-9406ca366567",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "oatiz",
+      "messages": [],
+      "total_additions": 617,
+      "total_deletions": 71,
+      "accepted_lines": 565,
+      "overriden_lines": 0,
+      "messages_url": "https://codeaiapi.xinfei-inc.cn/cas/94b5dcf2df7e3201a9d0b8273864fc92496ce6d3b56109fafb997bfe5beee648"
+    }
+  }
+}
