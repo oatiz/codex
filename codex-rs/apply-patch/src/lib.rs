@@ -1,5 +1,5 @@
 mod invocation;
-mod parser;
+pub mod parser;
 mod seek_sequence;
 mod standalone_executable;
 
@@ -22,6 +22,8 @@ pub use parser::parse_patch;
 use similar::TextDiff;
 use thiserror::Error;
 
+pub use invocation::MaybeApplyPatch;
+pub use invocation::maybe_parse_apply_patch;
 pub use invocation::maybe_parse_apply_patch_verified;
 pub use standalone_executable::main;
 

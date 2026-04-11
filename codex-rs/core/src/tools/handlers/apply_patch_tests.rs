@@ -37,6 +37,43 @@ async fn approval_keys_include_move_destination() {
 }
 
 #[test]
+fn extract_files_from_patch_includes_rename_source_and_destination() {
+    let patch = r#"*** Begin Patch
+*** Update File: old/name.txt
+*** Move to: renamed/dir/name.txt
+@@
+-old content
++new content
+*** End Patch"#;
+
+    assert_eq!(
+        extract_files_from_patch(patch),
+        vec![
+            "old/name.txt".to_string(),
+            "renamed/dir/name.txt".to_string()
+        ]
+    );
+}
+
+#[test]
+fn apply_patch_hook_payload_for_wrapped_command_extracts_files() {
+    let patch = "*** Begin Patch\n*** Add File: signal.txt\n+hi\n*** End Patch";
+    let command = vec![
+        "/bin/zsh".to_string(),
+        "-lc".to_string(),
+        format!("apply_patch <<'EOF'\n{patch}\nEOF\n"),
+    ];
+
+    assert_eq!(
+        apply_patch_hook_payload_for_command(&command),
+        Some(PreToolUsePayload {
+            tool_name: APPLY_PATCH_HOOK_TOOL_NAME.to_string(),
+            tool_input: apply_patch_tool_input(vec!["signal.txt".to_string()]),
+        })
+    );
+}
+
+#[test]
 fn write_permissions_for_paths_skip_dirs_already_writable_under_workspace_root() {
     let tmp = TempDir::new().expect("tmp");
     let cwd_path = tmp.path();

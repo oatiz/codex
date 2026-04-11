@@ -19,10 +19,10 @@ use crate::tools::context::ToolPayload;
 use crate::tools::events::ToolEmitter;
 use crate::tools::events::ToolEventCtx;
 use crate::tools::handlers::apply_granted_turn_permissions;
+use crate::tools::handlers::apply_patch::apply_patch_hook_payload_for_command;
 use crate::tools::handlers::apply_patch::intercept_apply_patch;
 use crate::tools::handlers::implicit_granted_permissions;
 use crate::tools::handlers::normalize_and_validate_additional_permissions;
-use crate::tools::handlers::parse_arguments;
 use crate::tools::handlers::parse_arguments_with_base_path;
 use crate::tools::handlers::resolve_workdir_base_path;
 use crate::tools::orchestrator::ToolOrchestrator;
@@ -52,26 +52,66 @@ pub struct ShellCommandHandler {
     backend: ShellCommandBackend,
 }
 
-fn shell_payload_command(payload: &ToolPayload) -> Option<String> {
+fn bash_hook_payload(command: String) -> PreToolUsePayload {
+    PreToolUsePayload {
+        tool_name: "Bash".to_string(),
+        tool_input: serde_json::json!({ "command": command }),
+    }
+}
+
+fn shell_hook_payload(
+    payload: &ToolPayload,
+    turn_context: &TurnContext,
+) -> Option<PreToolUsePayload> {
     match payload {
-        ToolPayload::Function { arguments } => parse_arguments::<ShellToolCallParams>(arguments)
-            .ok()
-            .map(|params| codex_shell_command::parse_command::shlex_join(&params.command)),
-        ToolPayload::LocalShell { params } => Some(codex_shell_command::parse_command::shlex_join(
-            &params.command,
-        )),
+        ToolPayload::Function { arguments } => {
+            let base_path = resolve_workdir_base_path(arguments, &turn_context.cwd).ok()?;
+            let params: ShellToolCallParams =
+                parse_arguments_with_base_path(arguments, &base_path).ok()?;
+            if let Some(payload) = apply_patch_hook_payload_for_command(&params.command) {
+                Some(payload)
+            } else {
+                Some(bash_hook_payload(
+                    codex_shell_command::parse_command::shlex_join(&params.command),
+                ))
+            }
+        }
+        ToolPayload::LocalShell { params } => {
+            if let Some(payload) = apply_patch_hook_payload_for_command(&params.command) {
+                Some(payload)
+            } else {
+                Some(bash_hook_payload(
+                    codex_shell_command::parse_command::shlex_join(&params.command),
+                ))
+            }
+        }
         _ => None,
     }
 }
 
-fn shell_command_payload_command(payload: &ToolPayload) -> Option<String> {
+fn shell_command_hook_payload(
+    payload: &ToolPayload,
+    turn_context: &TurnContext,
+    session_shell: &Shell,
+    allow_login_shell: bool,
+) -> Option<PreToolUsePayload> {
     let ToolPayload::Function { arguments } = payload else {
         return None;
     };
 
-    parse_arguments::<ShellCommandToolCallParams>(arguments)
-        .ok()
-        .map(|params| params.command)
+    let base_path = resolve_workdir_base_path(arguments, &turn_context.cwd).ok()?;
+    let params: ShellCommandToolCallParams =
+        parse_arguments_with_base_path(arguments, &base_path).ok()?;
+    let use_login_shell =
+        ShellCommandHandler::resolve_use_login_shell(params.login, allow_login_shell).ok()?;
+    let command =
+        ShellCommandHandler::base_command(session_shell, &params.command, use_login_shell);
+
+    if let Some(payload) = apply_patch_hook_payload_for_command(&command) {
+        Some(payload)
+    } else {
+        Some(bash_hook_payload(params.command))
+    }
 }
 
 struct RunExecLikeArgs {
@@ -204,18 +244,20 @@ impl ToolHandler for ShellHandler {
     }
 
     fn pre_tool_use_payload(&self, invocation: &ToolInvocation) -> Option<PreToolUsePayload> {
-        shell_payload_command(&invocation.payload).map(|command| PreToolUsePayload { command })
+        shell_hook_payload(&invocation.payload, invocation.turn.as_ref())
     }
 
     fn post_tool_use_payload(
         &self,
+        invocation: &ToolInvocation,
         call_id: &str,
-        payload: &ToolPayload,
         result: &dyn ToolOutput,
     ) -> Option<PostToolUsePayload> {
-        let tool_response = result.post_tool_use_response(call_id, payload)?;
+        let tool_response = result.post_tool_use_response(call_id, &invocation.payload)?;
+        let hook_payload = shell_hook_payload(&invocation.payload, invocation.turn.as_ref())?;
         Some(PostToolUsePayload {
-            command: shell_payload_command(payload)?,
+            tool_name: hook_payload.tool_name,
+            tool_input: hook_payload.tool_input,
             tool_response,
         })
     }
@@ -309,19 +351,30 @@ impl ToolHandler for ShellCommandHandler {
     }
 
     fn pre_tool_use_payload(&self, invocation: &ToolInvocation) -> Option<PreToolUsePayload> {
-        shell_command_payload_command(&invocation.payload)
-            .map(|command| PreToolUsePayload { command })
+        shell_command_hook_payload(
+            &invocation.payload,
+            invocation.turn.as_ref(),
+            invocation.session.user_shell().as_ref(),
+            invocation.turn.tools_config.allow_login_shell,
+        )
     }
 
     fn post_tool_use_payload(
         &self,
+        invocation: &ToolInvocation,
         call_id: &str,
-        payload: &ToolPayload,
         result: &dyn ToolOutput,
     ) -> Option<PostToolUsePayload> {
-        let tool_response = result.post_tool_use_response(call_id, payload)?;
+        let tool_response = result.post_tool_use_response(call_id, &invocation.payload)?;
+        let hook_payload = shell_command_hook_payload(
+            &invocation.payload,
+            invocation.turn.as_ref(),
+            invocation.session.user_shell().as_ref(),
+            invocation.turn.tools_config.allow_login_shell,
+        )?;
         Some(PostToolUsePayload {
-            command: shell_command_payload_command(payload)?,
+            tool_name: hook_payload.tool_name,
+            tool_input: hook_payload.tool_input,
             tool_response,
         })
     }

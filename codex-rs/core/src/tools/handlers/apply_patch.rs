@@ -16,6 +16,8 @@ use crate::tools::events::ToolEventCtx;
 use crate::tools::handlers::apply_granted_turn_permissions;
 use crate::tools::handlers::parse_arguments;
 use crate::tools::orchestrator::ToolOrchestrator;
+use crate::tools::registry::PostToolUsePayload;
+use crate::tools::registry::PreToolUsePayload;
 use crate::tools::registry::ToolHandler;
 use crate::tools::registry::ToolKind;
 use crate::tools::runtimes::apply_patch::ApplyPatchRequest;
@@ -35,6 +37,79 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 pub struct ApplyPatchHandler;
+pub(crate) const APPLY_PATCH_HOOK_TOOL_NAME: &str = "apply_patch";
+
+fn extract_files_from_hunks(hunks: &[codex_apply_patch::Hunk]) -> Vec<String> {
+    let mut files = Vec::new();
+
+    for hunk in hunks {
+        match hunk {
+            codex_apply_patch::Hunk::UpdateFile {
+                path, move_path, ..
+            } => {
+                files.push(path.display().to_string());
+                if let Some(move_path) = move_path {
+                    files.push(move_path.display().to_string());
+                }
+            }
+            codex_apply_patch::Hunk::AddFile { path, .. }
+            | codex_apply_patch::Hunk::DeleteFile { path } => {
+                files.push(path.display().to_string());
+            }
+        }
+    }
+
+    files
+}
+
+/// Extract file paths from a patch text string.
+/// Returns an empty list if parsing fails.
+pub(crate) fn extract_files_from_patch(patch_text: &str) -> Vec<String> {
+    match codex_apply_patch::parser::parse_patch(patch_text) {
+        Ok(parsed) => extract_files_from_hunks(&parsed.hunks),
+        Err(_) => Vec::new(),
+    }
+}
+
+/// Extract file paths from an apply_patch invocation's payload for the hook
+/// tool_input. Returns an empty list if parsing fails.
+fn extract_files_from_payload(payload: &ToolPayload) -> Vec<String> {
+    let patch_text = match payload {
+        ToolPayload::Function { arguments } => {
+            serde_json::from_str::<ApplyPatchToolArgs>(arguments)
+                .ok()
+                .map(|args| args.input)
+        }
+        ToolPayload::Custom { input } => Some(input.clone()),
+        _ => None,
+    };
+
+    match patch_text {
+        Some(text) => extract_files_from_patch(&text),
+        None => Vec::new(),
+    }
+}
+
+/// Build the `tool_input` JSON for apply_patch hooks.
+pub(crate) fn apply_patch_tool_input(files: Vec<String>) -> serde_json::Value {
+    serde_json::json!({ "files": files })
+}
+
+pub(crate) fn apply_patch_hook_payload_for_command(
+    command: &[String],
+) -> Option<PreToolUsePayload> {
+    let files = match codex_apply_patch::maybe_parse_apply_patch(command) {
+        codex_apply_patch::MaybeApplyPatch::Body(args) => extract_files_from_hunks(&args.hunks),
+        codex_apply_patch::MaybeApplyPatch::PatchParseError(_) => Vec::new(),
+        codex_apply_patch::MaybeApplyPatch::ShellParseError(_)
+        | codex_apply_patch::MaybeApplyPatch::NotApplyPatch => return None,
+    };
+
+    Some(PreToolUsePayload {
+        tool_name: APPLY_PATCH_HOOK_TOOL_NAME.to_string(),
+        tool_input: apply_patch_tool_input(files),
+    })
+}
 
 fn file_paths_for_action(action: &ApplyPatchAction) -> Vec<AbsolutePathBuf> {
     let mut keys = Vec::new();
@@ -140,6 +215,29 @@ impl ToolHandler for ApplyPatchHandler {
 
     async fn is_mutating(&self, _invocation: &ToolInvocation) -> bool {
         true
+    }
+
+    fn pre_tool_use_payload(&self, invocation: &ToolInvocation) -> Option<PreToolUsePayload> {
+        let files = extract_files_from_payload(&invocation.payload);
+        Some(PreToolUsePayload {
+            tool_name: APPLY_PATCH_HOOK_TOOL_NAME.to_string(),
+            tool_input: apply_patch_tool_input(files),
+        })
+    }
+
+    fn post_tool_use_payload(
+        &self,
+        invocation: &ToolInvocation,
+        call_id: &str,
+        result: &dyn crate::tools::context::ToolOutput,
+    ) -> Option<PostToolUsePayload> {
+        let tool_response = result.post_tool_use_response(call_id, &invocation.payload)?;
+        let files = extract_files_from_payload(&invocation.payload);
+        Some(PostToolUsePayload {
+            tool_name: APPLY_PATCH_HOOK_TOOL_NAME.to_string(),
+            tool_input: apply_patch_tool_input(files),
+            tool_response,
+        })
     }
 
     async fn handle(&self, invocation: ToolInvocation) -> Result<Self::Output, FunctionCallError> {
@@ -290,7 +388,9 @@ pub(crate) async fn intercept_apply_patch(
             {
                 InternalApplyPatchInvocation::Output(item) => {
                     let content = item?;
-                    Ok(Some(FunctionToolOutput::from_text(content, Some(true))))
+                    let mut output = FunctionToolOutput::from_text(content.clone(), Some(true));
+                    output.post_tool_use_response = Some(serde_json::Value::String(content));
+                    Ok(Some(output))
                 }
                 InternalApplyPatchInvocation::DelegateToExec(apply) => {
                     let changes = convert_apply_patch_to_protocol(&apply.action);
@@ -340,7 +440,9 @@ pub(crate) async fn intercept_apply_patch(
                         tracker.as_ref().copied(),
                     );
                     let content = emitter.finish(event_ctx, out).await?;
-                    Ok(Some(FunctionToolOutput::from_text(content, Some(true))))
+                    let mut output = FunctionToolOutput::from_text(content.clone(), Some(true));
+                    output.post_tool_use_response = Some(serde_json::Value::String(content));
+                    Ok(Some(output))
                 }
             }
         }
