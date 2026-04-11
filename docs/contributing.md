@@ -71,6 +71,19 @@ When a change updates model catalogs or model metadata (`/models` payloads, pres
 - **Assume good intent.** Written communication is hard - err on the side of generosity.
 - **Teach & learn.** If you spot something confusing, open an issue or discussion with suggestions or clarifications.
 
+### Release workflows
+
+The repository has two release workflows:
+
+- **`rust-release.yml`** is the official release pipeline, triggered by `rust-v*`
+  tags.  It produces signed binaries, npm packages, installer scripts, DotSlash
+  assets, and WinGet submissions.
+- **`codex-bin-release.yml`** is a lightweight, manually triggered workflow that
+  builds only the standalone CLI binary on GitHub-hosted runners.  It is safe to
+  run on forks and does not interact with any official distribution channel.
+
+See `.github/workflows/README.md` for full details on when to use each workflow.
+
 ### Getting help
 
 If you run into problems setting up the project, would like feedback on an idea, or just want to say _hi_ - please open a Discussion topic or jump into the relevant issue. We are happy to help.
