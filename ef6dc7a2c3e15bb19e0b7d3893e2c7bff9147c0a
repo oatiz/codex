@@ -1,0 +1,78 @@
+codex-rs/hooks/schema/generated/post-tool-use.command.input.schema.json
+  a24a1ac593e28bfb 37
+  ec85b0890f9ab45a 40-43
+codex-rs/hooks/src/schema.rs
+  a24a1ac593e28bfb 173-176,196-199
+  ec85b0890f9ab45a 449,457
+codex-rs/core/src/hook_runtime.rs
+  ec85b0890f9ab45a 122,132,153,164
+  a24a1ac593e28bfb 123,134,154,166
+codex-rs/core/src/tools/handlers/shell.rs
+  a24a1ac593e28bfb 58,260,377
+  ec85b0890f9ab45a 55-57,59-65,67,69,73-79,82-87,92-97,103,105-109,112-114,247,252,256-257,259,354-359,364,368-374,376
+codex-rs/core/src/tools/handlers/apply_patch.rs
+  ec85b0890f9ab45a 19-20,40-41,112,222-223,225-234,236-237,239-240,391-393,443-445
+  a24a1ac593e28bfb 65-68,70-97,220-221,224,235,238
+codex-rs/hooks/src/events/pre_tool_use.rs
+  ec85b0890f9ab45a 88
+  a24a1ac593e28bfb 10,30,89
+codex-rs/core/tests/suite/hooks.rs
+  a24a1ac593e28bfb 1372-1375,1906-1909
+  ec85b0890f9ab45a 15,1293-1371,1376-1379,1835-1905,1910-1914
+codex-rs/hooks/src/events/post_tool_use.rs
+  a24a1ac593e28bfb 30,96
+  ec85b0890f9ab45a 95
+codex-rs/core/src/tools/handlers/unified_exec.rs
+  a24a1ac593e28bfb 113,176
+  ec85b0890f9ab45a 89-97,100-107,110-112,114-117,154,159,163,172-173,175
+codex-rs/hooks/schema/generated/pre-tool-use.command.input.schema.json
+  a24a1ac593e28bfb 37
+  ec85b0890f9ab45a 40-43
+codex-rs/core/src/tools/registry.rs
+  ec85b0890f9ab45a 69,111,117,131,160,164,311,316-318,324-331,379,390
+  a24a1ac593e28bfb 112,118,312,319-323,391
+codex-rs/core/src/tools/handlers/shell_tests.rs
+  ec85b0890f9ab45a 233,240-267,294,300-323,329-330,334,345-357,359,365-398,400
+  a24a1ac593e28bfb 234,268,295,324,360,399
+codex-rs/apply-patch/src/lib.rs
+  a24a1ac593e28bfb 2
+codex-rs/core/src/tools/context.rs
+  ec85b0890f9ab45a 243-246
+codex-rs/core/src/tools/handlers/unified_exec_tests.rs
+  ec85b0890f9ab45a 220,227-247,275-276,280,298-310,312,319-354,356,361-362,366,384-396,401-402,406,424-436
+  a24a1ac593e28bfb 221,248,313,355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.6-codex",
+  "base_commit_sha": "ef6dc7a2c3e15bb19e0b7d3893e2c7bff9147c0a",
+  "prompts": {
+    "a24a1ac593e28bfb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f0e837d3-8170-4446-b79d-e0afec029aa1",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 89,
+      "overriden_lines": 0
+    },
+    "ec85b0890f9ab45a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4d45-e5c4-7d32-8d78-9406ca366567",
+        "model": "gpt-5.4-mini"
+      },
+      "human_author": "oatiz",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 531,
+      "overriden_lines": 0,
+      "messages_url": "https://codeaiapi.xinfei-inc.cn/cas/94b5dcf2df7e3201a9d0b8273864fc92496ce6d3b56109fafb997bfe5beee648"
+    }
+  }
+}
